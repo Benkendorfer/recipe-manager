@@ -22,11 +22,16 @@ load_dotenv()
 
 FDC_BASE_URL = "https://api.nal.usda.gov/fdc/v1"
 
-# USDA's FDC API gateway intermittently serves a bogus 404 (with an HTML body)
-# for otherwise-valid requests; retrying the identical request almost always
-# succeeds. We therefore retry on 404 here, even though 404 is normally not a
-# retryable status.
-_RETRY_STATUSES = frozenset({404, 500, 502, 503, 504})
+# FDC search `dataType` values in descending order of preference. `search_foods`
+# queries each in turn, so results come back grouped: all Foundation matches
+# first, then Survey (FNDDS), then Branded. (SR Legacy is intentionally omitted.)
+DATA_TYPE_PREFERENCE = ("Foundation", "Survey (FNDDS)", "Branded")
+
+# USDA's FDC API gateway intermittently serves bogus 400/404 errors (with an
+# HTML body) for otherwise-valid requests; retrying the identical request almost
+# always succeeds. We therefore retry on 400 and 404 here, even though neither is
+# normally a retryable status.
+_RETRY_STATUSES = frozenset({400, 404, 500, 502, 503, 504})
 
 
 def _make_session() -> requests.Session:
@@ -86,17 +91,27 @@ def _get_from_USDA(path: str, params: dict[str, Any] | None = None) -> requests.
 def search_foods(query: str, page_size: int = 10) -> list[dict[str, Any]]:
     """Search for foods in the USDA FoodData Central database.
 
+    Queries each data type in `DATA_TYPE_PREFERENCE` separately and concatenates the results, so preferred data types always appear first.
+
     Args:
         query (str): Name of food to search
-        page_size (int, optional): Results to return per page. Defaults to 10.
+        page_size (int, optional): Max results to fetch per data type. Defaults to 10.
 
     Returns:
-        list[dict[str, Any]]: Matching food records from the FDC search endpoint.
+        list[dict[str, Any]]: Matching food records, grouped by data-type
+            preference (up to `page_size` per type).
     """
-    response = _get_from_USDA("foods/search", {"query": query, "pageSize": page_size})
-    response_json = response.json()
-    print(f"Results: {response_json.get("totalHits", -1)}")
-    return response_json.get("foods", [])
+    foods: list[dict[str, Any]] = []
+    for data_type in DATA_TYPE_PREFERENCE:
+        response = _get_from_USDA(
+            "foods/search",
+            {"query": query, "pageSize": page_size, "dataType": data_type},
+        )
+        response_json = response.json()
+        matches = response_json.get("foods", [])
+        print(f"{data_type}: {response_json.get("totalHits", -1)} results")
+        foods.extend(matches)
+    return foods
 
 
 def get_food_details(fdc_id: int) -> dict[str, Any]:
