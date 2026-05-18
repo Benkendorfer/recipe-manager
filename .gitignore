@@ -1,0 +1,41 @@
+# Editor / IDE
+.vscode/
+.idea/
+
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.conda/
+
+# Test / coverage
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# Databases (SQLite)
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment / secrets
+.env
+.env.*
+
+# OS
+.DS_Store

@@ -1,0 +1,12 @@
+name: recipe_manager
+channels:
+  - conda-forge
+dependencies:
+  - python=3.14
+  - pandas
+  - pip
+  - pydantic
+  - sqlalchemy
+  - sqlmodel
+  - streamlit
+  - python-dotenv

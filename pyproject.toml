@@ -1,0 +1,8 @@
+[project]
+name = "recipe-manager"
+version = "0.1.0"
+description = "Recipe health tracker"
+requires-python = ">=3.14"
+
+# Dependencies are managed with conda — see environment.yml.
+# This file holds project metadata and tool config only.
