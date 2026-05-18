@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import os
 from typing import Any
 
@@ -7,6 +8,14 @@ import requests
 from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+
+@dataclass
+class USDAFoodEntry:
+    description: str
+    fdc_id: int
+    data_type: str
+    brand_owner: str
 
 
 load_dotenv()
@@ -48,6 +57,32 @@ def _get_api_key() -> str:
     return key
 
 
+def _get_from_USDA(path: str, params: dict[str, Any] | None = None) -> requests.Response:
+    """GET an FDC endpoint, report rate-limit usage, and raise on HTTP errors.
+
+    Args:
+        path (str): Endpoint path relative to `FDC_BASE_URL`, e.g. `foods/search`.
+        params (dict, optional): Query params; the API key is added automatically.
+
+    Returns:
+        requests.Response: The successful response.
+    """
+    query: dict[str, Any] = {"api_key": _get_api_key()}
+    if params:
+        query.update(params)
+    response = _SESSION.get(
+        f"{FDC_BASE_URL}/{path}",
+        params=query,
+        timeout=20,
+    )
+    # Printed before raise_for_status so usage shows even on a 429/error.
+    limit = response.headers.get("X-RateLimit-Limit", "?")
+    remaining = response.headers.get("X-RateLimit-Remaining", "?")
+    print(f"[FDC] rate limit: {remaining}/{limit} remaining")
+    response.raise_for_status()
+    return response
+
+
 def search_foods(query: str, page_size: int = 10) -> list[dict[str, Any]]:
     """Search for foods in the USDA FoodData Central database.
 
@@ -58,13 +93,29 @@ def search_foods(query: str, page_size: int = 10) -> list[dict[str, Any]]:
     Returns:
         list[dict[str, Any]]: Matching food records from the FDC search endpoint.
     """
-    response = _SESSION.get(
-        f"{FDC_BASE_URL}/foods/search",
-        params={
-            "api_key": _get_api_key(),
-            "query": query
-        },
-        timeout=20,
-    )
-    response.raise_for_status()
-    return response.json().get("foods", [])
+    response = _get_from_USDA("foods/search", {"query": query, "pageSize": page_size})
+    response_json = response.json()
+    print(f"Results: {response_json.get("totalHits", -1)}")
+    return response_json.get("foods", [])
+
+
+def get_food_details(fdc_id: int) -> dict[str, Any]:
+    """Fetch full details, including nutrients, for a single FDC food.
+
+    Args:
+        fdc_id (int): FoodData Central identifier of the food.
+
+    Returns:
+        dict[str, Any]: The food record from the FDC `/food/{fdcId}` endpoint.
+    """
+    response = _get_from_USDA(f"food/{fdc_id}")
+    return response.json()
+
+
+def get_food_entries_from_response(response: list[dict[str, Any]]) -> list[USDAFoodEntry]:
+    return [USDAFoodEntry(
+        description=food.get("description", "description unknown"),
+        fdc_id=food.get("fdcId", 0),
+        data_type=food.get("dataType", "dataType unknown"),
+        brand_owner=food.get("brandOwner", "")
+    ) for food in response]
