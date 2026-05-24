@@ -12,7 +12,7 @@ directory = "changelog.d"
 filename = "CHANGELOG.md"
 start_string = "<!-- towncrier release notes start -->\n"
 title_format = "## [{version}](https://github.com/Benkendorfer/recipe-manager/tree/v{version}) - {project_date}"
-issue_format = "[#{issue}](https://github.com/Benkendorfer/recipe-manager/issues/{issue})"
+issue_format = "[#{issue}](https://github.com/Benkendorfer/recipe-manager/pull/{issue})"
 
 [[tool.towncrier.type]]
 directory = "security"
