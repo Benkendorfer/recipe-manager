@@ -1,0 +1,42 @@
+name: Release changelog check
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release-changelog:
+    name: release-changelog-updated
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Check CHANGELOG contains tagged version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+
+          echo "Tag: $GITHUB_REF_NAME"
+          echo "Version: $VERSION"
+          echo "Checking CHANGELOG.md..."
+
+          if grep -qE "^## \\[?$VERSION\\]?" CHANGELOG.md; then
+            echo "CHANGELOG.md contains a release section for $VERSION."
+            exit 0
+          fi
+
+          echo "CHANGELOG.md does not contain a release section for $VERSION."
+          echo ""
+          echo "Expected something like:"
+          echo "  ## [$VERSION] - YYYY-MM-DD"
+          echo "or:"
+          echo "  ## $VERSION - YYYY-MM-DD"
+          echo ""
+          echo "Run towncrier before tagging:"
+          echo "  towncrier build --version $VERSION"
+          echo "  git add CHANGELOG.md changelog.d"
+          echo "  git commit -m \"Release v$VERSION\""
+          echo "  git tag -a v$VERSION -m \"Release v$VERSION\""
+          exit 1
