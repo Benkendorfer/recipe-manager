@@ -8,6 +8,7 @@ requires-python = ">=3.12"
 # This file holds project metadata and tool config only.
 
 [tool.towncrier]
+package = false
 directory = "changelog.d"
 filename = "CHANGELOG.md"
 start_string = "<!-- towncrier release notes start -->\n"
