@@ -1,0 +1,49 @@
+name: Changelog check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled, edited]
+
+jobs:
+  changelog:
+    name: changelog-required
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for changelog fragment
+        env:
+          LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if echo "$LABELS" | grep -q "skip-changelog"; then
+            echo "skip-changelog label found; passing."
+            exit 0
+          fi
+
+          git fetch origin "$BASE_REF"
+
+          CHANGED_FILES=$(git diff --name-only "origin/$BASE_REF"...HEAD)
+
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          if echo "$CHANGED_FILES" | grep -E '^changelog\.d/[0-9]+\.(added|changed|fixed|removed|deprecated|security)\.md$'; then
+            echo "Changelog fragment found."
+            exit 0
+          fi
+
+          echo "Missing changelog fragment."
+          echo ""
+          echo "Add a file like:"
+          echo "  changelog.d/123.fixed.md"
+          echo ""
+          echo "Allowed types:"
+          echo "  added, changed, fixed, removed, deprecated, security"
+          echo ""
+          echo "Or apply the skip-changelog label if this PR does not need a changelog entry."
+          exit 1

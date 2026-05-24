@@ -2,7 +2,44 @@
 name = "recipe-manager"
 version = "0.1.0"
 description = "Recipe health tracker"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 
 # Dependencies are managed with conda — see environment.yml.
 # This file holds project metadata and tool config only.
+
+[tool.towncrier]
+directory = "changelog.d"
+filename = "CHANGELOG.md"
+start_string = "<!-- towncrier release notes start -->\n"
+title_format = "## [{version}](https://github.com/Benkendorfer/recipe-manager/tree/v{version}) - {project_date}"
+issue_format = "[#{issue}](https://github.com/Benkendorfer/recipe-manager/issues/{issue})"
+
+[[tool.towncrier.type]]
+directory = "security"
+name = "Security"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removed"
+name = "Removed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "deprecated"
+name = "Deprecated"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "changed"
+name = "Changed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true
