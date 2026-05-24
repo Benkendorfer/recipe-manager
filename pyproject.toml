@@ -2,10 +2,15 @@
 name = "recipe-manager"
 version = "0.1.0"
 description = "Recipe health tracker"
-requires-python = ">=3.12"
-
-# Dependencies are managed with conda — see environment.yml.
-# This file holds project metadata and tool config only.
+requires-python = ">=3.14"
+dependencies = [
+  "pandas",
+  "pydantic",
+  "sqlalchemy",
+  "sqlmodel",
+  "streamlit",
+  "python-dotenv",
+]
 
 [tool.towncrier]
 package = false
