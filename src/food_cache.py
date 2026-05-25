@@ -17,7 +17,7 @@ from typing import Any, Optional
 
 from sqlalchemy import UniqueConstraint, event
 from sqlmodel import (
-    Field, Relationship, Session, SQLModel, create_engine, select)
+    Field, Relationship, Session, SQLModel, col, create_engine, select)
 
 
 # --- Engine ------------------------------------------------------------
@@ -233,6 +233,39 @@ def get_cached_food(fdc_id: int) -> dict[str, Any] | None:
             "canonicalUnit": food.canonical_unit,
             "foodNutrients": food_nutrients,
         }
+
+
+def search_cached_foods(query: str) -> list[dict[str, Any]]:
+    """Return cached foods whose description matches `query`.
+
+    Case-insensitive substring match on the description. Each result is shaped
+    like a `fdc_client.search_foods()` entry (fdcId/description/dataType/
+    brandOwner), so cached and live results flow through the same UI code.
+
+    Args:
+        query (str): Substring to match against cached food descriptions.
+
+    Returns:
+        list[dict[str, Any]]: Matching cached foods (empty list on no match).
+    """
+    _ensure_schema()
+    pattern = f"%{query}%"
+    with Session(_engine) as session:
+        rows = session.exec(
+            select(Food, FDCEntry)
+            .join(FDCEntry)
+            .where(col(Food.description).ilike(pattern))
+            .order_by(col(Food.description))
+        ).all()
+        return [
+            {
+                "fdcId": entry.fdc_id,
+                "description": food.description,
+                "dataType": entry.data_type,
+                "brandOwner": entry.brand_owner,
+            }
+            for food, entry in rows
+        ]
 
 
 def save_food(details: dict[str, Any]) -> None:
