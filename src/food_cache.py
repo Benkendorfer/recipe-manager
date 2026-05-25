@@ -26,7 +26,8 @@ from sqlmodel import (
 # place regardless of the process's working directory. Override with e.g.
 # RECIPE_DB_URL=postgresql+psycopg://user:pass@host/db to point the cache
 # at a server database
-_DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "recipe_cache.db"
+_DEFAULT_DB_PATH = Path(__file__).resolve(
+).parent.parent / "db" / "recipe_cache.db"
 DB_URL = os.environ.get("RECIPE_DB_URL", f"sqlite:///{_DEFAULT_DB_PATH}")
 
 _engine = create_engine(DB_URL, echo=False)
@@ -59,6 +60,10 @@ class Food(SQLModel, table=True):
     food_id: int | None = Field(default=None, primary_key=True)  # surrogate PK
     description: str
     source: str  # discriminator: which extension table holds the metadata
+    # The reference quantity the nutrient amounts (FoodNutrient.amount) are
+    # measured against, e.g. 100 g. Needed to interpret/scale the nutrients.
+    canonical_amount: float
+    canonical_unit: str
     cached_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc))
 
@@ -134,9 +139,24 @@ class FoodNutrient(SQLModel, table=True):
 _schema_ready = False
 
 
+def _ensure_db_directory() -> None:
+    """Create the parent directory of a file-based SQLite database.
+
+    SQLite creates the database file but not the directory containing it, so a
+    path like ``db/recipe_cache.db`` raises "unable to open database file"
+    until ``db/`` exists. No-op for in-memory or non-SQLite backends.
+    """
+    if _engine.dialect.name != "sqlite":
+        return
+    database = _engine.url.database
+    if database and database != ":memory:":
+        Path(database).parent.mkdir(parents=True, exist_ok=True)
+
+
 def init_db() -> None:
     """Create the cache tables if they do not already exist."""
     global _schema_ready
+    _ensure_db_directory()
     SQLModel.metadata.create_all(_engine)
     _schema_ready = True
 
@@ -152,6 +172,12 @@ def _ensure_schema() -> None:
 # The schema above is source-agnostic; the helpers below read/write FDC
 # records specifically. A new source (e.g. Open Food Facts) would get its own
 # adapter plus its own extension table, without touching the core tables.
+
+# FDC reports foodNutrients amounts per 100 g of edible portion across all data
+# types, so that is the canonical basis for the nutrient values we store.
+_FDC_CANONICAL_AMOUNT = 100.0
+_FDC_CANONICAL_UNIT = "g"
+
 
 def _get_food_by_fdc_id(session: Session, fdc_id: int) -> Food | None:
     """Return the cached Food for an FDC id, or None if not cached."""
@@ -203,6 +229,8 @@ def get_cached_food(fdc_id: int) -> dict[str, Any] | None:
             "description": food.description,
             "dataType": fdc.data_type,
             "brandOwner": fdc.brand_owner,
+            "canonicalAmount": food.canonical_amount,
+            "canonicalUnit": food.canonical_unit,
             "foodNutrients": food_nutrients,
         }
 
@@ -221,6 +249,8 @@ def save_food(details: dict[str, Any]) -> None:
     food = Food(
         description=details.get("description", ""),
         source="fdc",
+        canonical_amount=_FDC_CANONICAL_AMOUNT,
+        canonical_unit=_FDC_CANONICAL_UNIT,
         fdc_entry=FDCEntry(
             fdc_id=fdc_id,
             data_type=details.get("dataType"),

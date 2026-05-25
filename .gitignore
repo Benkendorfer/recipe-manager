@@ -32,6 +32,7 @@ htmlcov/
 *.db
 *.sqlite
 *.sqlite3
+db/
 
 # Environment / secrets
 .env
