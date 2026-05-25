@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from .food_cache import get_cached_food, save_food
+
 
 @dataclass
 class USDAFoodEntry:
@@ -117,14 +119,28 @@ def search_foods(query: str, page_size: int = 10) -> list[dict[str, Any]]:
 def get_food_details(fdc_id: int) -> dict[str, Any]:
     """Fetch full details, including nutrients, for a single FDC food.
 
+    Checks the local cache first (see src/food_cache.py): on a hit the food is
+    returned without calling the FDC API; on a miss it is fetched from FDC,
+    stored in the cache, and returned. Note that a cache hit returns the cached
+    projection (description, data type, brand owner, and nutrients), not the
+    full raw FDC payload.
+
     Args:
         fdc_id (int): FoodData Central identifier of the food.
 
     Returns:
-        dict[str, Any]: The food record from the FDC `/food/{fdcId}` endpoint.
+        dict[str, Any]: The food record, from the local cache or the FDC
+            `/food/{fdcId}` endpoint.
     """
+    cached = get_cached_food(fdc_id)
+    if cached is not None:
+        print(f"[FDC] cache hit for fdc_id={fdc_id}")
+        return cached
+
     response = _get_from_USDA(f"food/{fdc_id}")
-    return response.json()
+    details = response.json()
+    save_food(details)
+    return details
 
 
 def get_food_entries_from_response(response: list[dict[str, Any]]) -> list[USDAFoodEntry]:
