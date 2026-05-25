@@ -5,6 +5,13 @@ USDA [FoodData Central](https://fdc.nal.usda.gov/) (FDC) database.
 
 **Phase 0:** manual recipe entry, USDA ingredient lookup, and SQLite storage.
 
+- [Recipe Manager](#recipe-manager)
+  - [Setup](#setup)
+  - [Running](#running)
+  - [Tests](#tests)
+  - [Project structure](#project-structure)
+  - [Notes](#notes)
+
 ## Setup
 
 1. **Create the conda environment** (Python 3.14):
@@ -28,17 +35,29 @@ USDA [FoodData Central](https://fdc.nal.usda.gov/) (FDC) database.
 streamlit run app.py
 ```
 
+## Tests
+
+```bash
+pytest
+```
+
+(`environment.yml` installs the test dependencies via `-e .[test]`.)
+
 ## Project structure
 
-| Path                 | Purpose                                              |
-| -------------------- | ---------------------------------------------------- |
-| `app.py`             | Streamlit UI: ingredient search and nutrient display |
-| `src/fdc_client.py`  | Client for the USDA FoodData Central API             |
-| `environment.yml`    | Conda environment definition                         |
+| Path                | Purpose                                              |
+| ------------------- | ---------------------------------------------------- |
+| `app.py`            | Streamlit UI: ingredient search and nutrient display |
+| `src/fdc_client.py` | Client for the USDA FoodData Central API             |
+| `src/food_cache.py` | Local SQLite cache for FDC lookups (SQLModel models) |
+| `environment.yml`   | Conda environment definition                         |
+| `tests/`            | Pytest unit tests for the cache                      |
 
 ## Notes
 
-- USDA ingredient search queries Foundation, Survey (FNDDS), and Branded food
-  types in that order of preference, so curated results appear first.
+- Ingredient search prefers Survey (FNDDS) foods, then Foundation, then Branded,
+  and skips entries that lack energy data.
+- Searched foods are cached in a local SQLite database (`db/recipe_cache.db`),
+  so repeat lookups are served from disk instead of the FDC API.
 - The FDC API gateway intermittently returns spurious `400`/`404` errors;
   `fdc_client` retries these automatically.
